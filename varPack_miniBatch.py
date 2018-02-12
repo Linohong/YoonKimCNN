@@ -1,7 +1,6 @@
 import DataRead
 import gensim
 import numpy as np
-import preprocessing
 
 '''
 # README : varPack.py
@@ -46,9 +45,9 @@ print('Done word2vec loading !')
 # HYPER-PARAMETERS
 CONTEXT_SIZE = 2
 vocab_size = len(wordEmbedding)
+batch_size = 50
 max_sent_len = 66
 FEATURE_SIZE = 100
-batch_size = 50
 
 # etc. Funtions
 def makeInput(sent) :
@@ -70,3 +69,4 @@ def makeInput(sent) :
         input.append(word_to_ix['_ZEROS_'])
 
     return input
+

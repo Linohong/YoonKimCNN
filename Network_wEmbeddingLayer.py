@@ -23,7 +23,7 @@ class CnnNetwork(nn.Module) :
         self.conv2 = nn.Conv2d(1, D.FEATURE_SIZE, (4, D.EMBEDDING_DIM) )
         self.conv3 = nn.Conv2d(1, D.FEATURE_SIZE, (5, D.EMBEDDING_DIM) )
         # Dropout & Linear
-        self.drp = nn.Dropout(p=0.5)
+        self.drp = nn.Dropout(p=0.2)
         self.fc1 = nn.Linear(D.FEATURE_SIZE * 3, 2)
 
     def forward(self, x) :

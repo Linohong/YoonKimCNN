@@ -4,48 +4,53 @@ import torch.optim as optim
 import Network_wEmbeddingLayer as Net
 import varPack as D
 import numpy as np
+import torch.utils.data as data
 from random import shuffle
 from torch.autograd import Variable
 from sklearn.model_selection import KFold
 
-# add manual_seed
 torch.manual_seed(1)
 
 shuffled = D.text_and_label
-shuffled = [ [D.text_and_label[0][i], D.text_and_label[1][i]] for i in range(len(D.text_and_label[0]))]
+shuffled = [ [D.text_and_label[0][i], D.text_and_label[1][i]] for i in range(len(D.text_and_label[0])) ]
 shuffle(shuffled)
 
 # definition for K-Folds
-
-
 kf = KFold(n_splits=10)
 kf.get_n_splits(shuffled)
 
 scores = []
 k=0
 print('Training Start ...')
+# for loop for k-fold
 for train_index, test_index in kf.split(shuffled) :
-    print('now : [%d] Fold' % k)
+    print('now : [%d] Fold' % (k+1))
     CNN = Net.CnnNetwork()
-    optimizer = optim.SGD(CNN.parameters(), lr=0.001, momentum=0.9)
+    optimizer = optim.Adadelta(CNN.parameters(), lr=0.001)
     criterion = nn.BCELoss()
     CNN.cuda()
 
+    # added to mini-batches
+    trainloader = data.DataLoader(train_index, D.batch_size, shuffle=False, num_workers=8)
+
     k=k+1
-    # @ Cross Validation : Train Part
+    # @ Cross Validation : Train Part using mini-batches
     for epoch in range(10):
-        for i, index in enumerate(train_index) :
-            label = shuffled[index][1]
-            sent = shuffled[index][0]
+        for batch in trainloader :
+            label = []
+            sent = []
+            for index in batch :
+                label.append(shuffled[index][1])
+                sent.append(shuffled[index][0])
 
             # make the input
-            input = D.makeInput(sent)
-            if ( input == -1 ) :
-                continue
+            input = []
+            for i in range(len(label)) :
+                input.append(D.makeInput(sent[i]))
 
             # Wrap Input inside the Variable
-            input = Variable(torch.cuda.LongTensor(input))
-            label = Variable(torch.cuda.FloatTensor(label))
+            input = Variable(torch.cuda.LongTensor(D.batch_size, input))
+            label = Variable(torch.cuda.FloatTensor(D.batch_size, label))
 
             # Clear the Buffer
             optimizer.zero_grad()
@@ -56,7 +61,7 @@ for train_index, test_index in kf.split(shuffled) :
             loss.backward()
             optimizer.step()
 
-    # @ Cross Validation : Test Part
+    # @ Cross Validation : Test Part using mini-batches
     got_right = 0
     for i, index in enumerate(test_index) :
         label = shuffled[index][1]
@@ -69,11 +74,8 @@ for train_index, test_index in kf.split(shuffled) :
 
         input = Variable(torch.cuda.LongTensor(input))
         label = Variable(torch.cuda.FloatTensor(label))
-        optimizer.zero_grad()
 
         output = CNN(input)
-        loss = criterion(output, label)
-
         if ((output.data[0][0] >= output.data[0][1] and label.data[0] == 1) or (output.data[0][0] < output.data[0][1] and label.data[1] == 1)) :
             got_right = got_right + 1
 
