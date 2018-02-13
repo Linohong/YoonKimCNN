@@ -12,8 +12,9 @@ from sklearn.model_selection import KFold
 torch.manual_seed(1)
 
 shuffled = D.text_and_label
-shuffled = [ [D.text_and_label[0][i], D.text_and_label[1][i]] for i in range(len(D.text_and_label[0])) ]
+shuffled = [ [D.text_and_label[0][i], D.text_and_label[1][i]] for i in range(len(D.text_and_label[0])) ] # text_and_label[0][i] are sentence composed of indices of words
 shuffle(shuffled)
+
 
 # definition for K-Folds
 kf = KFold(n_splits=10)
@@ -26,31 +27,28 @@ print('Training Start ...')
 for train_index, test_index in kf.split(shuffled) :
     print('now : [%d] Fold' % (k+1))
     CNN = Net.CnnNetwork()
-    optimizer = optim.Adadelta(CNN.parameters(), lr=0.001)
+    #optimizer = optim.Adadelta(CNN.parameters(), lr=0.001)
+    optimizer = optim.Adam(CNN.parameters()
+
+                           )
     criterion = nn.BCELoss()
     CNN.cuda()
 
     # added to mini-batches
-    trainloader = data.DataLoader(train_index, D.batch_size, shuffle=False, num_workers=8)
+    x_train, y_train = np.array([lst[0] for lst in shuffled]), np.array([lst[1] for lst in shuffled])
+    x_train, y_train = torch.from_numpy(x_train[train_index]).long(), torch.from_numpy(y_train[train_index]).float()
+    k_train_data = torch.utils.data.TensorDataset(x_train, y_train)
+    trainloader = data.DataLoader(k_train_data, batch_size=D.batch_size, shuffle=False, num_workers=8) # check if trainloader set right
 
     k=k+1
     # @ Cross Validation : Train Part using mini-batches
     for epoch in range(10):
-        for batch in trainloader :
-            label = []
-            sent = []
-            for index in batch :
-                label.append(shuffled[index][1])
-                sent.append(shuffled[index][0])
-
-            # make the input
-            input = []
-            for i in range(len(label)) :
-                input.append(D.makeInput(sent[i]))
-
+        for (batch_sent, batch_label) in trainloader :
             # Wrap Input inside the Variable
-            input = Variable(torch.cuda.LongTensor(D.batch_size, input))
-            label = Variable(torch.cuda.FloatTensor(D.batch_size, label))
+            input = Variable(batch_sent.cuda())
+            label = Variable(batch_label.cuda())
+            #input = Variable(torch.cuda.LongTensor(batch_sent))
+            #label = Variable(torch.cuda.FloatTensor(batch_label))
 
             # Clear the Buffer
             optimizer.zero_grad()
@@ -61,27 +59,22 @@ for train_index, test_index in kf.split(shuffled) :
             loss.backward()
             optimizer.step()
 
-    # @ Cross Validation : Test Part using mini-batches
-    got_right = 0
-    for i, index in enumerate(test_index) :
-        label = shuffled[index][1]
-        sent = shuffled[index][0]
+        # @ Cross Validation : Test Part using mini-batches
 
-        # make the input
-        input = D.makeInput(sent)
-        if (input==-1) :
-            continue
+        k_test_data = np.array(shuffled)[test_index]
+        k_test_data = k_test_data.tolist()
+        got_right = 0
+        for i, batch in enumerate(k_test_data) :
+            input = Variable(torch.cuda.LongTensor(batch[0]))
+            label = Variable(torch.cuda.FloatTensor(batch[1]))
 
-        input = Variable(torch.cuda.LongTensor(input))
-        label = Variable(torch.cuda.FloatTensor(label))
+            output = CNN(input)
+            if ((output.data[0][0] >= output.data[0][1] and label.data[0] == 1) or (output.data[0][0] < output.data[0][1] and label.data[1] == 1)) :
+                got_right = got_right + 1
 
-        output = CNN(input)
-        if ((output.data[0][0] >= output.data[0][1] and label.data[0] == 1) or (output.data[0][0] < output.data[0][1] and label.data[1] == 1)) :
-            got_right = got_right + 1
-
-    cur_score = float(got_right)/len(test_index)
-    scores.append(cur_score)
-    print('[%d] Cross Validation - Accuracy : %.3f' % (k, cur_score))
+        cur_score = float(got_right)/len(k_test_data)
+        scores.append(cur_score)
+        print('[%d] Cross Validation [%d] epoch - Accuracy : %.3f' % (k, epoch, cur_score))
 
 
 print('*****************************************')

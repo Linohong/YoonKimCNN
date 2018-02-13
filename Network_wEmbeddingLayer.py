@@ -16,7 +16,7 @@ class CnnNetwork(nn.Module) :
         super(CnnNetwork, self).__init__()
         # embedding layer
         self.embeddings = nn.Embedding(D.vocab_size, D.EMBEDDING_DIM)
-        self.embeddings.weight.data.copy_(torch.from_numpy(D.wordEmbedding))
+        # self.embeddings.weight.data.copy_(torch.from_numpy(D.wordEmbedding))
 
         # Kernel Operation
         self.conv1 = nn.Conv2d(1, D.FEATURE_SIZE, (3, D.EMBEDDING_DIM) )
@@ -28,7 +28,8 @@ class CnnNetwork(nn.Module) :
 
     def forward(self, x) :
         # Get embeddings first then conv.
-        x = self.embeddings(x).view(1, 1, D.max_sent_len, -1)
+        # x = self.embeddings(x).view(1, 1, D.max_sent_len, -1)
+        x = self.embeddings(x).view(-1, 1, D.max_sent_len, D.EMBEDDING_DIM)
 
         # Max pooling over a (2, 2) window
         x_3 = F.max_pool2d(F.relu(self.conv1(x)), (D.max_sent_len-2, 1) ) # second argument for the max-pooling size

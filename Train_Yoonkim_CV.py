@@ -33,6 +33,7 @@ for train_index, test_index in kf.split(shuffled) :
 
     k=k+1
     # @ Cross Validation : Train Part
+    CNN.train()
     for epoch in range(10):
         for i, index in enumerate(train_index) :
             label = shuffled[index][1]
@@ -55,6 +56,8 @@ for train_index, test_index in kf.split(shuffled) :
             loss = criterion(output, label) # label must be the list of one integer of target index
             loss.backward()
             optimizer.step()
+
+    CNN.eval()
 
     # @ Cross Validation : Test Part
     got_right = 0
